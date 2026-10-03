@@ -2,6 +2,7 @@
 #import "File";
 #import "File_Utilities";
 #import "String";
+#import "Compiler";
 
 #load "languages.jai";
 #load "yaml_snippets.jai";
@@ -176,7 +177,7 @@ main :: () {
     array_add(*line_offsets, 0);
 
     for raw_row, index: split(builder_to_string(*yaml), "\n") {
-        row := raw_row;
+        row := trim_right(raw_row, "\r");
         line_number = index + 1;
 
         spaces := 0;
@@ -424,15 +425,18 @@ parse_row :: (row_data: string) -> key: string, value: string, is_list_entry: bo
 
 
 support_module_paths :: string.[
-    "c:/jai/modules/Preload.jai",
-    "c:/jai/modules/Basic/module.jai",
-    "c:/jai/modules/Basic/Array.jai",
-    "c:/jai/modules/Basic/Print.jai",
-    "c:/jai/modules/Basic/Simple_String.jai",
-    "c:/jai/modules/Basic/String_Builder.jai",
-    "c:/jai/modules/Basic/string_to_float.jai",
-    "c:/jai/modules/Basic/Memory_Debugger.jai",
+    "modules/Preload.jai",
+    "modules/Runtime_Support.jai",
+    "modules/Basic/module.jai",
+    "modules/Basic/Array.jai",
+    "modules/Basic/Print.jai",
+    "modules/Basic/Simple_String.jai",
+    "modules/Basic/String_Builder.jai",
+    "modules/Basic/string_to_float.jai",
+    "modules/Basic/Memory_Debugger.jai",
 ];
+
+modules_path :: #run join(compiler_get_base_path(), "/modules");
 
 
 contains :: (haystack: []$T, needle: T) -> bool {
@@ -442,7 +446,7 @@ contains :: (haystack: []$T, needle: T) -> bool {
 
 
 scrape_modules_folder :: () {
-    files := file_list("c:/jai/modules", recursive = true, follow_symlinks = false);
+    files := file_list(modules_path, recursive = true, follow_directory_symlinks = false);
     for * files {
         if !ends_with(<<it, ".jai") || contains(<<it, "/example")
             remove it;
@@ -464,7 +468,9 @@ scrape_modules_folder :: () {
             data = read_entire_file(filepath);
         }
 
-        if contains(support_module_paths, filepath) {
+        relative_path := advance(filepath, modules_path.count + 1);
+        relative_path = join("modules/", relative_path);
+        if contains(support_module_paths, relative_path) {
             exporting := true;
             for line: split(data, "\n") {
                 trimmed := trim(line);
@@ -477,7 +483,7 @@ scrape_modules_folder :: () {
                     continue;
                 }
 
-                if starts_with(line, " ")  continue;
+                if !exporting || starts_with(line, " ") || starts_with(line, "\t") continue;
 
                 index := find_index_from_left(trimmed, "::");
                 if index < 0  continue;
@@ -488,7 +494,7 @@ scrape_modules_folder :: () {
                 trim_end_from :: (s: string, delimiter: $T) -> trimmed: string, found: bool {
                   from := find_index_from_right(s, delimiter);
 
-                  trimmed := "";
+                  trimmed := s;
                   found := from != -1;
                   if found {
                       trimmed = slice(s, 0, from);

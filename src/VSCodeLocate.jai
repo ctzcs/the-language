@@ -94,9 +94,9 @@ check_valid_message :: (p: *Metaprogram_Plugin, message: *Message) {
             for typechecked.subexpressions  array_add(*expressions, it);
         }
 
-        case .COMPILATION_PHASE;
+        case .PHASE;
         phase := cast (*Message_Phase) message;
-        if phase.phase == .TYPECHECKED_ALL_WE_CAN && phase.num_items_waiting_to_typecheck == 0 {
+        if !finished_typechecking && phase.phase == .TYPECHECKED_ALL_WE_CAN && phase.num_items_waiting_to_typecheck == 0 {
             finished_typechecking = true;
 
             for expr: expressions
@@ -145,6 +145,8 @@ check_valid_message :: (p: *Metaprogram_Plugin, message: *Message) {
 
 
 process_decl_or_ident :: (node: *Code_Node) {
+    // Compiler-generated nodes need not have an enclosing source file.
+    if !node || !node.enclosing_load || node.l0 <= 0 || node.c0 <= 0 return;
     if node.kind == {
         case .DECLARATION;
         decl := cast(*Code_Declaration) node;
@@ -184,9 +186,8 @@ check_add_decl :: (decl: *Code_Declaration) -> Location_List {
 
 is_valid_decl :: (decl: *Code_Declaration) -> bool {
     //return decl != null;
-    return decl && decl.name != "" && decl.enclosing_load
-        && (decl.enclosing_load.enclosing_import.module_type == .MAIN_PROGRAM
-            || decl.enclosing_load.enclosing_import.module_type == .FILE);
+    return decl && decl.name != "" && decl.l0 > 0 && decl.c0 > 0 && decl.enclosing_load
+        && decl.enclosing_load.fully_pathed_filename != "";
 }
 
 
@@ -203,7 +204,7 @@ decl_from_location :: (filename: string, line: int, char: int) -> *Code_Declarat
                 continue;
 
             if line == range.line_number_start && char < range.character_number_start
-            || line == range.line_number_end   && char > range.character_number_end
+            || line == range.line_number_end   && char >= range.character_number_end
                 continue;
 
             return decl;
@@ -245,6 +246,7 @@ make_code_range :: (node: *Code_Node) -> Source_Code_Range {
     // @Note c1 for declarations include function signatures, so crop it down
     if node.kind == .DECLARATION {
         decl := cast(*Code_Declaration) node;
+        range.line_number_end = range.line_number_start;
         range.character_number_end = range.character_number_start + decl.name.count;
     }
     else
@@ -258,8 +260,10 @@ normalize_path :: (path: string) {
     if path {
         path_overwrite_separators(path);
 
-        for c_index: 0 .. path.count-1 {
-            path[c_index] = to_lower(path[c_index]);
+        #if OS == .WINDOWS {
+            for c_index: 0 .. path.count-1 {
+                path[c_index] = to_lower(path[c_index]);
+            }
         }
     }
 }

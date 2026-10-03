@@ -1,5 +1,13 @@
 # Change Log
 
+## [0.0.88] - 2026-10-04
+* Updated compiler navigation for Jai beta 0.2.009 (`PHASE` messages), handled generated nodes without source locations, and merged polymorphic references.
+* Refresh project indexes when any Jai source is saved; invalidate stale locations on edits, isolate projects, and handle process errors/cancellation.
+* Added tolerant navigation for unsaved code, import/load file navigation, type definitions, hover documentation, signature help, struct/module completions, filename completions, and workspace symbols.
+* Added scope and collision checks for local rename; require current compiler data for global/member rename.
+* Updated highlighting for `#Context`, `#exists`, `#discard`, `#no_aoc`, `interface`, casts, postfix dereference, and context overrides.
+* Discover Jai on PATH; resolve relative project paths and compiler-relative module directories. Copy runtime assets during npm builds and add compiler/editor/grammar regression tests.
+
 ## [0.0.86] - 2022-11-29
 * Added Outlining/Folding/Sticky Scroll
 * Updated for v0.1.046
